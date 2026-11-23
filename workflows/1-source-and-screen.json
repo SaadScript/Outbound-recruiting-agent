@@ -1,0 +1,1022 @@
+{
+  "name": "Recruiting Agent 1 - Source and Screen",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 1. Source and Screen\nRecruiter submits a role in the form. The agent writes the JD, searches public LinkedIn profiles via Serper, screens them with AI, looks up work emails (Apollo, shortlisted only), drafts outreach and saves everything to the Sheet as **Ready for review**.\n\n**Nothing is emailed to candidates here.** The recruiter approves in the Sheet; workflow 2 sends.",
+        "width": 560,
+        "height": 220,
+        "color": 4
+      },
+      "id": "cdfd9bc0-a59c-43af-a1c1-f345deade2af",
+      "name": "Note 0",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "basicAuth",
+        "formTitle": "New Role",
+        "formDescription": "Submit a hiring need. You'll get an email when candidates are ready to review.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Job Title",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Location",
+              "requiredField": true,
+              "placeholder": "e.g. Austin, TX  or  Remote US"
+            },
+            {
+              "fieldLabel": "Seniority",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Junior"
+                  },
+                  {
+                    "option": "Mid"
+                  },
+                  {
+                    "option": "Senior"
+                  },
+                  {
+                    "option": "Lead"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Must-have skills",
+              "requiredField": true,
+              "placeholder": "comma separated"
+            },
+            {
+              "fieldLabel": "Nice-to-have skills",
+              "placeholder": "comma separated"
+            },
+            {
+              "fieldLabel": "Notes",
+              "fieldType": "textarea",
+              "placeholder": "Anything the AI should know about the role"
+            }
+          ]
+        },
+        "options": {
+          "respondWithOptions": {
+            "values": {
+              "formSubmittedText": "Got it. The agent is sourcing now; you'll get an email in a few minutes."
+            }
+          }
+        }
+      },
+      "id": "3d1c5d83-4722-4e2f-95ce-b062769d6ee2",
+      "name": "New Role Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        300
+      ],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "",
+          "name": "Form login"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "41d4957a-1f72-40fa-b48c-025e6878c8ef",
+              "name": "sheet_id",
+              "value": "PASTE_YOUR_GOOGLE_SHEET_ID_HERE",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "id": "e3437549-1df3-4f22-b383-e9490559031c",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Config').first().json.sheet_id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Settings",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "8626e597-2c66-4840-941f-3dfc1c55ea12",
+      "name": "Load Settings",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        440,
+        300
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets account"
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turns the Settings tab (key | value rows) into one object.\nconst s = {};\nfor (const it of $input.all()) {\n  const k = String(it.json.key ?? '').trim();\n  if (k) s[k] = String(it.json.value ?? '').trim();\n}\nfor (const k of ['agency_name', 'recruiter_name', 'recruiter_email']) {\n  if (!s[k]) throw new Error(`Settings tab is missing a value for \"${k}\"`);\n}\nreturn [{ json: s }];\n"
+      },
+      "id": "9d8a27e7-5428-4807-9e5c-d925808a66aa",
+      "name": "Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Config').first().json.sheet_id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Candidates",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "28fe2193-3d26-459d-af55-56666943c12d",
+      "name": "Read Candidates",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        880,
+        300
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets account"
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const f = $('New Role Form').first().json;\nconst s = $('Settings').first().json;\nconst sys = 'You are a senior recruiter. Return ONLY a JSON object with keys: job_title (string), summary (2-3 sentences), '\n  + 'responsibilities (array of strings, max 6), must_have_skills (array of strings), nice_to_have_skills (array of strings), '\n  + 'search_titles (array of exactly 3 alternative job titles people doing this job commonly hold). '\n  + 'Never add requirements about age, gender, ethnicity, religion, disability, nationality or any other protected characteristic. Do not invent salary.';\nconst user = JSON.stringify({ title: f['Job Title'], location: f['Location'], seniority: f['Seniority'],\n  must_have: f['Must-have skills'], nice_to_have: f['Nice-to-have skills'] || '', notes: f['Notes'] || '' });\nreturn [{ json: { request: { model: s.llm_model || 'gpt-4.1-mini', temperature: 0.3,\n  response_format: { type: 'json_object' },\n  messages: [{ role: 'system', content: sys }, { role: 'user', content: user }] } } }];\n"
+      },
+      "id": "2f7019ba-8e0a-4804-8776-3f2b95fd7ebb",
+      "name": "Prep JD Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Settings').first().json.llm_url || 'https://api.openai.com/v1/chat/completions' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "timeout": 90000
+        }
+      },
+      "id": "445857d7-dda4-4a44-b477-19b40cae111e",
+      "name": "AI: Build JD",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "AI API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const f = $('New Role Form').first().json;\nlet jd;\ntry { jd = JSON.parse($input.first().json.choices[0].message.content); }\ncatch (e) { throw new Error('AI returned an unreadable job description: ' + e.message); }\nconst list = v => Array.isArray(v) ? v.map(x => String(x).trim()).filter(Boolean)\n  : String(v || '').split(',').map(x => x.trim()).filter(Boolean);\nconst now = new Date();\nconst stamp = now.toISOString().slice(0, 10).replace(/-/g, '');\nreturn [{ json: {\n  job_id: 'JOB-' + stamp + '-' + Math.random().toString(36).slice(2, 6).toUpperCase(),\n  role: String(jd.job_title || f['Job Title']).trim(),\n  location: String(f['Location']).trim(),\n  seniority: f['Seniority'],\n  summary: String(jd.summary || ''),\n  responsibilities: list(jd.responsibilities).join('\\n'),\n  must_have: (list(jd.must_have_skills).length ? list(jd.must_have_skills) : list(f['Must-have skills'])).join(', '),\n  nice_to_have: (list(jd.nice_to_have_skills).length ? list(jd.nice_to_have_skills) : list(f['Nice-to-have skills'])).join(', '),\n  search_titles: list(jd.search_titles).slice(0, 3).join(' | '),\n  status: 'Open',\n  created_at: now.toISOString()\n} }];\n"
+      },
+      "id": "ef080fd7-2937-4886-8ad6-4e4ca9fa013b",
+      "name": "Parse JD",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Config').first().json.sheet_id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Jobs",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "job_id"
+          ],
+          "schema": []
+        },
+        "options": {
+          "cellFormat": "RAW",
+          "handlingExtraData": "ignoreIt"
+        }
+      },
+      "id": "9d5124af-9929-4451-88f5-1e746f5ec47a",
+      "name": "Save Job",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1760,
+        300
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const job = $('Parse JD').first().json;\nconst s = $('Settings').first().json;\n// Serper's free plan rejects site:, quoted phrases and more than 10 results per search.\n// search_use_site = yes (paid Serper plan): precise LinkedIn-only search, 20 results.\n// Anything else (free plan, default): plain words, 10 results.\nconst paid = String(s.search_use_site || 'no').trim().toLowerCase() === 'yes';\nconst plain = v => String(v).replace(/[\"\\u201C\\u201D]/g, '').replace(/\\s+/g, ' ').trim();\nconst titles = [...new Set([job.role, ...String(job.search_titles).split('|')].map(t => t.trim()).filter(Boolean))].slice(0, 4);\nconst loc = job.location.replace(/\\bremote\\b/ig, '').replace(/[(),]+/g, ' ').replace(/\\s+/g, ' ').trim();\nconst skillList = job.must_have.split(',').map(x => x.trim()).filter(Boolean).slice(0, 2);\nconst num = paid ? 20 : 10;\nconst out = [];\nfor (const t of titles) {\n  const base = paid ? `site:linkedin.com/in \"${t}\"` + (loc ? ` \"${loc}\"` : '') : plain(`LinkedIn ${t} ${loc}`);\n  const skills = paid ? skillList.map(x => `\"${x}\"`).join(' ') : plain(skillList.join(' '));\n  out.push({ json: { q: (base + ' ' + skills).trim(), num } });   // strict: title + location + top skills\n  out.push({ json: { q: base, num } });                          // broad: title + location\n}\nreturn out;\n"
+      },
+      "id": "22f5530a-e003-4e5f-8d6c-ea9533b1d63f",
+      "name": "Build Search Queries",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://google.serper.dev/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ q: $json.q, num: $json.num || 10, gl: $('Settings').first().json.search_country || 'us' }) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 2,
+              "batchInterval": 1000
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "491f77bd-5c59-41a8-9dd0-0e1a813ba886",
+      "name": "Search LinkedIn (Serper)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2200,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "Serper API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const job = $('Parse JD').first().json;\nconst s = $('Settings').first().json;\nconst max = Number(s.max_candidates_per_role) || 25;\nconst coolDays = Number(s.recontact_cooldown_days) || 60;\nconst handleOf = url => {\n  const m = String(url || '').match(/linkedin\\.com\\/in\\/([^\\/?#]+)/i);\n  if (!m) return null;\n  try { return decodeURIComponent(m[1]).toLowerCase(); } catch (e) { return m[1].toLowerCase(); }\n};\n// People who opted out, or were emailed recently for any role, are not sourced again.\nconst blocked = new Set();\nconst now = Date.now();\nfor (const it of $('Read Candidates').all()) {\n  const r = it.json; const h = handleOf(r.linkedin_url);\n  if (!h) continue;\n  if (r.status === 'Opted out') { blocked.add(h); continue; }\n  const sent = [r.outreach_sent_at, r.followup_sent_at].map(v => Date.parse(v)).filter(n => !isNaN(n));\n  if (sent.length && now - Math.max(...sent) < coolDays * 864e5) blocked.add(h);\n}\nconst seen = new Set(); const rows = []; let skipped = 0;\nfor (const it of $input.all()) {\n  for (const r of (it.json.organic || [])) {\n    const h = handleOf(r.link);\n    if (!h || seen.has(h)) continue;\n    seen.add(h);\n    if (blocked.has(h)) { skipped++; continue; }\n    const title = String(r.title || '').replace(/\\s*[|\u2013\\-]\\s*LinkedIn\\s*$/i, '');\n    const parts = title.split(/\\s+[\u2013\\-|]\\s+/);\n    const ts = new Date().toISOString();\n    rows.push({\n      candidate_id: job.job_id + '-' + h, job_id: job.job_id, role: job.role,\n      name: (parts[0] || '').trim(), headline: parts.slice(1).join(' - ').trim(),\n      linkedin_url: 'https://www.linkedin.com/in/' + h,\n      snippet: String(r.snippet || '').replace(/\\s+/g, ' ').trim(),\n      status: 'Sourced', created_at: ts, updated_at: ts, _skipped: skipped\n    });\n  }\n}\nfor (const r of rows) r._skipped = skipped;\nreturn rows.slice(0, max).map(j => ({ json: j }));\n"
+      },
+      "id": "e967009a-ff8c-42a5-97a8-fa0c8302d07d",
+      "name": "Normalize and Dedupe",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2420,
+        300
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "093bad23-c648-4128-88c1-34fc64ca93ac",
+              "leftValue": "={{ $json.candidate_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "66bba4e2-f311-4b1b-85dc-b1734f8345de",
+      "name": "Found Anyone?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2640,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Settings').first().json.recruiter_email }}",
+        "subject": "={{ 'No new candidates for ' + $('Parse JD').first().json.role }}",
+        "emailType": "html",
+        "message": "={{ '<p>The search for <b>' + $('Parse JD').first().json.role + '</b> (' + $('Parse JD').first().json.location + ') found no new LinkedIn profiles.</p><p>Try a broader location, fewer must-have skills, or a more common job title, then submit the form again.</p>' }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "90ac8c62-49bb-44bc-b488-c76f64ef7843",
+      "name": "Email: Nothing Found",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2860,
+        560
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "",
+          "name": "Gmail account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const COLS = [\"candidate_id\", \"job_id\", \"role\", \"name\", \"headline\", \"linkedin_url\", \"snippet\", \"email\", \"email_status\", \"current_title\", \"current_company\", \"score\", \"summary\", \"strengths\", \"gaps\", \"status\", \"outreach_subject\", \"outreach_body\", \"thread_id\", \"outreach_sent_at\", \"followup_sent_at\", \"last_reply_at\", \"interview_time\", \"meet_link\", \"candidate_notified_at\", \"recruiter_notes\", \"system_note\", \"created_at\", \"updated_at\", \"interview_booked_at\"];\nconst pick = o => { const r = {}; for (const k of COLS) if (o[k] !== undefined) r[k] = o[k]; return r; };\n\nconst job = $('Parse JD').first().json;\nconst s = $('Settings').first().json;\nconst sys = 'You screen candidates for a recruiter using ONLY the public profile snippet given. Never invent experience. '\n  + 'Ignore name, gender, age, ethnicity, nationality, photos and any other protected characteristic. '\n  + 'Return ONLY a JSON object: score (integer 0-100, fit to the job), summary (1-2 sentences), strengths (array, max 3), gaps (array, max 3). '\n  + 'If the snippet says little, score conservatively and say the profile needs a manual look.';\nreturn $input.all().map(it => {\n  const c = it.json;\n  const user = JSON.stringify({\n    job: { role: job.role, seniority: job.seniority, location: job.location, must_have: job.must_have, nice_to_have: job.nice_to_have },\n    candidate: { headline: c.headline, snippet: c.snippet } });\n  return { json: { row: c, request: { model: s.llm_model || 'gpt-4.1-mini', temperature: 0.2,\n    response_format: { type: 'json_object' },\n    messages: [{ role: 'system', content: sys }, { role: 'user', content: user }] } } };\n});\n"
+      },
+      "id": "4f4f1bee-2374-434b-8794-c81da74fef95",
+      "name": "Prep Screening",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2860,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Settings').first().json.llm_url || 'https://api.openai.com/v1/chat/completions' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "timeout": 90000,
+          "batching": {
+            "batch": {
+              "batchSize": 5,
+              "batchInterval": 1500
+            }
+          }
+        }
+      },
+      "id": "bd1d0935-cd97-4772-9653-9b3df165996c",
+      "name": "AI: Screen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3080,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "AI API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const COLS = [\"candidate_id\", \"job_id\", \"role\", \"name\", \"headline\", \"linkedin_url\", \"snippet\", \"email\", \"email_status\", \"current_title\", \"current_company\", \"score\", \"summary\", \"strengths\", \"gaps\", \"status\", \"outreach_subject\", \"outreach_body\", \"thread_id\", \"outreach_sent_at\", \"followup_sent_at\", \"last_reply_at\", \"interview_time\", \"meet_link\", \"candidate_notified_at\", \"recruiter_notes\", \"system_note\", \"created_at\", \"updated_at\", \"interview_booked_at\"];\nconst pick = o => { const r = {}; for (const k of COLS) if (o[k] !== undefined) r[k] = o[k]; return r; };\n\nconst row = $('Prep Screening').item.json.row;\nconst threshold = Number($('Settings').first().json.score_threshold) || 70;\nlet r;\ntry { r = JSON.parse($json.choices[0].message.content); }\ncatch (e) { r = { score: 0, summary: 'AI screening failed - review manually.', strengths: [], gaps: [] }; }\nconst score = Math.max(0, Math.min(100, Math.round(Number(r.score) || 0)));\nconst arr = v => Array.isArray(v) ? v.join('; ') : String(v || '');\nreturn { json: pick({ ...row, score, summary: String(r.summary || ''), strengths: arr(r.strengths), gaps: arr(r.gaps),\n  status: score >= threshold ? 'Shortlisted' : 'Not a fit', updated_at: new Date().toISOString() }) };\n"
+      },
+      "id": "1117f491-132a-48a7-83d1-61952007fac9",
+      "name": "Parse Screening",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3300,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a85f1891-d790-403e-a910-ff7d0d23871c",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "Shortlisted",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7de1f787-4838-4c97-b84b-08bf5be9940a",
+      "name": "Shortlisted?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        3520,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apollo.io/api/v1/people/match",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "linkedin_url",
+              "value": "={{ $json.linkedin_url }}"
+            },
+            {
+              "name": "reveal_personal_emails",
+              "value": "false"
+            },
+            {
+              "name": "reveal_phone_number",
+              "value": "false"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 3,
+              "batchInterval": 1000
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "315f8f6a-cba4-48d4-9f2e-5d8abab2265b",
+      "name": "Find Work Email (Apollo)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3740,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "Apollo API key"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const COLS = [\"candidate_id\", \"job_id\", \"role\", \"name\", \"headline\", \"linkedin_url\", \"snippet\", \"email\", \"email_status\", \"current_title\", \"current_company\", \"score\", \"summary\", \"strengths\", \"gaps\", \"status\", \"outreach_subject\", \"outreach_body\", \"thread_id\", \"outreach_sent_at\", \"followup_sent_at\", \"last_reply_at\", \"interview_time\", \"meet_link\", \"candidate_notified_at\", \"recruiter_notes\", \"system_note\", \"created_at\", \"updated_at\", \"interview_booked_at\"];\nconst pick = o => { const r = {}; for (const k of COLS) if (o[k] !== undefined) r[k] = o[k]; return r; };\n\nconst row = $('Shortlisted?').item.json;\nconst p = ($json && $json.person) || {};\nlet email = String(p.email || '').trim();\nif (!email || /not_unlocked|domain\\.com$/i.test(email)) email = '';\nconst note = $json.error ? 'Email lookup failed: ' + String($json.error.message || $json.error).slice(0, 120)\n  : (!email ? 'No email found - add one manually' : (p.email_status && p.email_status !== 'verified' ? 'Email is ' + p.email_status + ', not verified' : ''));\nreturn { json: pick({ ...row, email, email_status: email ? (p.email_status || 'unknown') : '',\n  current_title: p.title || '', current_company: (p.organization && p.organization.name) || '',\n  system_note: note }) };\n"
+      },
+      "id": "32a8a30b-0a57-4cc8-876b-252eb3790d30",
+      "name": "Add Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3960,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const s = $('Settings').first().json;\nconst job = $('Parse JD').first().json;\nconst sys = 'You write short, warm, honest recruiter outreach emails in plain text (max 110 words, no subject in the body). '\n  + 'Personalise only from the facts given (headline, current title, company). Do not claim to have read their full profile. '\n  + 'Do not invent salary, client names or benefits. Include the literal token BOOKING_LINK once, as an invitation to book a 20-minute intro call. '\n  + 'Sign off with the recruiter name and agency. Return ONLY a JSON object with keys subject and body.';\nreturn $input.all().map(it => {\n  const c = it.json;\n  const user = JSON.stringify({ first_name: (c.name || '').split(' ')[0], headline: c.headline,\n    current_title: c.current_title, current_company: c.current_company,\n    role: job.role, role_summary: job.summary, location: job.location,\n    recruiter: s.recruiter_name, agency: s.agency_name });\n  return { json: { row: c, request: { model: s.llm_model || 'gpt-4.1-mini', temperature: 0.6,\n    response_format: { type: 'json_object' },\n    messages: [{ role: 'system', content: sys }, { role: 'user', content: user }] } } };\n});\n"
+      },
+      "id": "ce51af58-5e50-4f8f-8a41-1a7a5d4f36d4",
+      "name": "Prep Outreach",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4180,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Settings').first().json.llm_url || 'https://api.openai.com/v1/chat/completions' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "timeout": 90000,
+          "batching": {
+            "batch": {
+              "batchSize": 5,
+              "batchInterval": 1500
+            }
+          }
+        }
+      },
+      "id": "9ef8feaf-59ed-4493-b718-bccaacd499bc",
+      "name": "AI: Draft Outreach",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        4400,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "AI API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const COLS = [\"candidate_id\", \"job_id\", \"role\", \"name\", \"headline\", \"linkedin_url\", \"snippet\", \"email\", \"email_status\", \"current_title\", \"current_company\", \"score\", \"summary\", \"strengths\", \"gaps\", \"status\", \"outreach_subject\", \"outreach_body\", \"thread_id\", \"outreach_sent_at\", \"followup_sent_at\", \"last_reply_at\", \"interview_time\", \"meet_link\", \"candidate_notified_at\", \"recruiter_notes\", \"system_note\", \"created_at\", \"updated_at\", \"interview_booked_at\"];\nconst pick = o => { const r = {}; for (const k of COLS) if (o[k] !== undefined) r[k] = o[k]; return r; };\n\nconst row = $('Prep Outreach').item.json.row;\nconst s = $('Settings').first().json;\nlet r;\ntry { r = JSON.parse($json.choices[0].message.content); } catch (e) { r = {}; }\nconst first = (row.name || '').split(' ')[0] || 'there';\nconst subject = String(r.subject || `${row.role} opportunity`).trim();\nlet body = String(r.body || `Hi ${first},\\n\\nI'm recruiting for a ${row.role} role and your background looks like a strong match. Would you be open to a 20-minute intro call? BOOKING_LINK\\n\\n${s.recruiter_name}\\n${s.agency_name}`);\n// (URLSearchParams is not available in the n8n Code sandbox)\nconst qs = o => Object.entries(o).filter(([, v]) => v).map(([k, v]) => encodeURIComponent(k) + '=' + encodeURIComponent(v)).join('&');\nconst link = (s.booking_link || '') + (String(s.booking_link).includes('?') ? '&' : '?')\n  + qs({ name: row.name || '', email: row.email || '', 'metadata[candidate_id]': row.candidate_id });\nbody = body.includes('BOOKING_LINK') ? body.replace('BOOKING_LINK', link) : body + '\\n\\nBook a time: ' + link;\nreturn { json: pick({ ...row, outreach_subject: subject, outreach_body: body,\n  status: row.email ? 'Ready for review' : 'Needs email', updated_at: new Date().toISOString() }) };\n"
+      },
+      "id": "b2c498ee-df4f-4a62-a176-7ca597bec3a8",
+      "name": "Parse Outreach",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4620,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Config').first().json.sheet_id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Candidates",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "candidate_id"
+          ],
+          "schema": []
+        },
+        "options": {
+          "cellFormat": "RAW",
+          "handlingExtraData": "ignoreIt"
+        }
+      },
+      "id": "36d3a628-40cc-4a76-b7c3-ad6b73e1c1ee",
+      "name": "Save Candidates",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        4840,
+        300
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const s = $('Settings').first().json;\nconst job = $('Parse JD').first().json;\nconst screened = $input.all().map(i => i.json);\nlet drafted = [];\ntry { drafted = $('Parse Outreach').all().map(i => i.json); } catch (e) { drafted = []; }\nlet skipped = 0;\ntry { skipped = Number($('Normalize and Dedupe').first().json._skipped) || 0; } catch (e) {}\nconst esc = v => String(v ?? '').replace(/[&<>\"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[c]));\nconst ready = drafted.filter(r => r.status === 'Ready for review');\nconst needs = drafted.filter(r => r.status === 'Needs email');\nconst notFit = screened.filter(r => r.status === 'Not a fit').length;\nconst top = [...drafted].sort((a, b) => b.score - a.score).slice(0, 8);\nconst url = s.sheet_url || ('https://docs.google.com/spreadsheets/d/' + $('Config').first().json.sheet_id);\nconst rowsHtml = top.map(r => `<tr><td>${esc(r.score)}</td><td><a href=\"${esc(r.linkedin_url)}\">${esc(r.name)}</a></td><td>${esc(r.headline)}</td><td>${esc(r.status)}</td></tr>`).join('');\nconst html = `<h2>${esc(job.role)} - candidates ready for review</h2>\n<p>Screened <b>${screened.length}</b> profiles: <b>${ready.length}</b> ready for review, <b>${needs.length}</b> shortlisted but need an email, <b>${notFit}</b> not a fit` + (skipped ? `, ${skipped} skipped (opted out or contacted recently)` : '') + `.</p>\n<table border=\"1\" cellpadding=\"6\" cellspacing=\"0\"><tr><th>Score</th><th>Name</th><th>Headline</th><th>Status</th></tr>${rowsHtml}</table>\n<p><b>Next step:</b> open the <a href=\"${esc(url)}\">Candidates sheet</a>, read each draft (edit it if you like), then change the status to <b>Approved</b>. Approved emails go out automatically within the hour.</p>`;\nreturn [{ json: { subject: `${ready.length + needs.length} candidates ready for review: ${job.role}`, html } }];\n"
+      },
+      "id": "ea795305-41f2-4ddd-8ba5-08b64d79d835",
+      "name": "Build Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3520,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Settings').first().json.recruiter_email }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "333f79b5-6f51-42d9-8844-0a185395516c",
+      "name": "Email: Review Summary",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        3740,
+        620
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "",
+          "name": "Gmail account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Load Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Settings": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "New Role Form": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Read Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Candidates": {
+      "main": [
+        [
+          {
+            "node": "Prep JD Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prep JD Request": {
+      "main": [
+        [
+          {
+            "node": "AI: Build JD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI: Build JD": {
+      "main": [
+        [
+          {
+            "node": "Parse JD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse JD": {
+      "main": [
+        [
+          {
+            "node": "Save Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Job": {
+      "main": [
+        [
+          {
+            "node": "Build Search Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Search Queries": {
+      "main": [
+        [
+          {
+            "node": "Search LinkedIn (Serper)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search LinkedIn (Serper)": {
+      "main": [
+        [
+          {
+            "node": "Normalize and Dedupe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize and Dedupe": {
+      "main": [
+        [
+          {
+            "node": "Found Anyone?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Found Anyone?": {
+      "main": [
+        [
+          {
+            "node": "Prep Screening",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email: Nothing Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prep Screening": {
+      "main": [
+        [
+          {
+            "node": "AI: Screen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI: Screen": {
+      "main": [
+        [
+          {
+            "node": "Parse Screening",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Screening": {
+      "main": [
+        [
+          {
+            "node": "Shortlisted?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shortlisted?": {
+      "main": [
+        [
+          {
+            "node": "Find Work Email (Apollo)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Save Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Work Email (Apollo)": {
+      "main": [
+        [
+          {
+            "node": "Add Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Email": {
+      "main": [
+        [
+          {
+            "node": "Prep Outreach",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prep Outreach": {
+      "main": [
+        [
+          {
+            "node": "AI: Draft Outreach",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI: Draft Outreach": {
+      "main": [
+        [
+          {
+            "node": "Parse Outreach",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Outreach": {
+      "main": [
+        [
+          {
+            "node": "Save Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Summary": {
+      "main": [
+        [
+          {
+            "node": "Email: Review Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

@@ -1,0 +1,396 @@
+{
+  "name": "Recruiting Agent 3 - Interview Booked (Cal.com)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 3. Interview Booked\nCal.com calls this webhook when a candidate books, reschedules or cancels. Cal.com creates the Google Calendar event and Meet link itself, so this workflow only updates the Sheet and tells the recruiter.\n\nMatches the booking by `candidate_id` (sent in the booking link), falling back to the attendee's email.",
+        "width": 560,
+        "height": 220,
+        "color": 4
+      },
+      "id": "dd3cc941-f471-411f-a617-a827059ae43d",
+      "name": "Note 0",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "recruiting-agent/booking",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "1369bcfc-de7c-44df-9577-9c56bd6220b2",
+      "name": "Cal.com Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "Webhook secret"
+        }
+      },
+      "webhookId": "10ea6d1e-2311-4a4d-8d78-54de9c0b0b87"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "797d8bf2-9027-4a8a-94a9-90c62bbbac25",
+              "name": "sheet_id",
+              "value": "PASTE_YOUR_GOOGLE_SHEET_ID_HERE",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "id": "243fdc47-8581-45a1-8929-77e99fa4ab33",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Config').first().json.sheet_id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Settings",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "58d1447f-4261-4616-852a-7a8d73f3c48e",
+      "name": "Load Settings",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        440,
+        300
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets account"
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turns the Settings tab (key | value rows) into one object.\nconst s = {};\nfor (const it of $input.all()) {\n  const k = String(it.json.key ?? '').trim();\n  if (k) s[k] = String(it.json.value ?? '').trim();\n}\nfor (const k of ['agency_name', 'recruiter_name', 'recruiter_email']) {\n  if (!s[k]) throw new Error(`Settings tab is missing a value for \"${k}\"`);\n}\nreturn [{ json: s }];\n"
+      },
+      "id": "228275e9-76c6-4862-b784-91fadbbce38e",
+      "name": "Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Config').first().json.sheet_id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Candidates",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "8804d72a-49dc-457b-a4f4-a2f4f4cea2b9",
+      "name": "Read Candidates",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        880,
+        300
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets account"
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $('Cal.com Webhook').first().json.body || {};\nconst ev = String(body.triggerEvent || '');\nconst p = body.payload || {};\nconst att = (p.attendees && p.attendees[0]) || {};\nconst meta = p.metadata || {};\nconst responses = p.responses || {};\nconst email = String(att.email || (responses.email && responses.email.value) || '').trim().toLowerCase();\nconst name = att.name || (responses.name && responses.name.value) || 'Someone';\nconst rows = $input.all().map(i => i.json).filter(r => r.candidate_id);\nlet row = meta.candidate_id ? rows.find(r => r.candidate_id === meta.candidate_id) : null;\nif (!row && email) row = rows.filter(r => String(r.email || '').trim().toLowerCase() === email)\n  .sort((a, b) => String(b.outreach_sent_at || '').localeCompare(String(a.outreach_sent_at || '')))[0];\nconst statusFor = { BOOKING_CREATED: 'Interview scheduled', BOOKING_RESCHEDULED: 'Interview scheduled', BOOKING_CANCELLED: 'Interview cancelled' };\nif (!statusFor[ev]) return [];   // ignore other Cal.com events\nconst meet = meta.videoCallUrl || (/^https?:/.test(String(p.location || '')) ? p.location : '');\nconst when = p.startTime || '';\nconst update = row ? { candidate_id: row.candidate_id, status: statusFor[ev], updated_at: new Date().toISOString(),\n  interview_time: ev === 'BOOKING_CANCELLED' ? '' : when, meet_link: ev === 'BOOKING_CANCELLED' ? '' : meet,\n  ...(ev === 'BOOKING_CREATED' ? { interview_booked_at: new Date().toISOString() } : {}),\n  ...(email && !row.email ? { email } : {}) } : null;\nconst verb = { BOOKING_CREATED: 'booked', BOOKING_RESCHEDULED: 'rescheduled', BOOKING_CANCELLED: 'cancelled' }[ev];\nconst esc = v => String(v ?? '').replace(/[&<>\"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[c]));\nconst subject = `Interview ${verb}: ${name}` + (row ? ` (${row.role})` : '');\nconst html = `<p><b>${esc(name)}</b> (${esc(email)}) ${verb} an interview` + (when && ev !== 'BOOKING_CANCELLED' ? ` for <b>${esc(new Date(when).toUTCString())}</b>` : '') + `.</p>`\n  + (meet && ev !== 'BOOKING_CANCELLED' ? `<p>Meeting link: <a href=\"${esc(meet)}\">${esc(meet)}</a></p>` : '')\n  + (row ? `<p>Score ${esc(row.score)} - ${esc(row.summary)}<br><a href=\"${esc(row.linkedin_url)}\">LinkedIn profile</a></p>`\n         : '<p>This booking did not match anyone in the Candidates sheet, so the sheet was not updated.</p>');\nreturn [{ json: { matched: !!row, update, subject, html } }];\n"
+      },
+      "id": "a792f23c-b159-44b6-9102-6d9d82fbedcc",
+      "name": "Match Booking",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ddd71013-283b-44f3-8b7e-ea669ed37f96",
+              "leftValue": "={{ $json.matched }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a0cb2ec2-e4de-4b72-b6d7-25e43c263b3b",
+      "name": "Matched a Candidate?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1320,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return { json: $json.update };\n"
+      },
+      "id": "c424a366-b358-43c4-9fd8-1345fe3b18c9",
+      "name": "Shape Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Config').first().json.sheet_id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Candidates",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "candidate_id"
+          ],
+          "schema": []
+        },
+        "options": {
+          "cellFormat": "RAW",
+          "handlingExtraData": "ignoreIt"
+        }
+      },
+      "id": "a8567e82-bd96-4d22-99a5-75fb9d37d7b0",
+      "name": "Update Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1760,
+        200
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Settings').first().json.recruiter_email }}",
+        "subject": "={{ $('Match Booking').first().json.subject }}",
+        "emailType": "html",
+        "message": "={{ $('Match Booking').first().json.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "332689d7-a4a5-4021-b1b4-8ec0bff31879",
+      "name": "Email Recruiter",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1980,
+        300
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "",
+          "name": "Gmail account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Load Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Settings": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cal.com Webhook": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Read Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Candidates": {
+      "main": [
+        [
+          {
+            "node": "Match Booking",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match Booking": {
+      "main": [
+        [
+          {
+            "node": "Matched a Candidate?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Matched a Candidate?": {
+      "main": [
+        [
+          {
+            "node": "Shape Update",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email Recruiter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shape Update": {
+      "main": [
+        [
+          {
+            "node": "Update Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Sheet": {
+      "main": [
+        [
+          {
+            "node": "Email Recruiter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

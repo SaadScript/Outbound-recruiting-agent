@@ -1,0 +1,15 @@
+{
+  "triggerEvent": "BOOKING_CREATED",
+  "payload": {
+    "title": "Intro call",
+    "startTime": "2026-11-26T10:00:00Z",
+    "endTime": "2026-11-26T10:20:00Z",
+    "attendees": [
+      { "name": "Test Candidate", "email": "PASTE_THE_EMAIL_FROM_THE_ROW_HERE" }
+    ],
+    "metadata": {
+      "candidate_id": "PASTE_THE_CANDIDATE_ID_FROM_THE_ROW_HERE",
+      "videoCallUrl": "https://meet.google.com/test-test-test"
+    }
+  }
+}

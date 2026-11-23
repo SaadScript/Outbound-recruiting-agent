@@ -1,0 +1,113 @@
+{
+  "name": "Recruiting Agent 5 - Error Alerts",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 5. Error Alerts\nSet this as the **Error workflow** in the settings of workflows 1-4. Any failure emails the admin with the step that broke and a link to the run.",
+        "width": 460,
+        "height": 160,
+        "color": 4
+      },
+      "id": "4f4c3b57-29c8-4df2-8f46-5420da7f70d8",
+      "name": "Note 0",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -60
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "7539b640-02cd-4a23-95a3-e338e321890a",
+      "name": "On Workflow Error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "51c8083f-1cd4-4955-b05c-13fe8d013b77",
+              "name": "admin_email",
+              "value": "PASTE_ADMIN_EMAIL_HERE",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "2e749c69-e29c-4231-8311-be1fd2aa347c",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.admin_email }}",
+        "subject": "={{ '[Recruiting Agent] ' + $json.workflow.name + ' failed' }}",
+        "emailType": "html",
+        "message": "={{ '<p><b>' + $json.workflow.name + '</b> failed at step <b>' + ($json.execution.lastNodeExecuted || '?') + '</b>.</p><p>Error: ' + (($json.execution.error || {}).message || 'unknown') + '</p><p><a href=\"' + ($json.execution.url || '') + '\">Open the failed run</a></p>' }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "36bc335a-e8d6-49b5-a497-de6150b8b469",
+      "name": "Email Admin",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        440,
+        300
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "",
+          "name": "Gmail account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "On Workflow Error": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Email Admin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

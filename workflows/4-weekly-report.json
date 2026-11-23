@@ -1,0 +1,332 @@
+{
+  "name": "Recruiting Agent 4 - Weekly Hiring Report",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 4. Weekly Hiring Report (Mondays 9am)\nAll numbers are counted in code from the Sheet. The AI only writes the three suggested next actions; if the AI call fails the report still sends.",
+        "width": 520,
+        "height": 160,
+        "color": 4
+      },
+      "id": "12b2e6f9-93f4-4d03-8c59-38c449496292",
+      "name": "Note 0",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "weeksInterval": 1,
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "7aa68959-4d0b-4d20-8ca0-1f8fa4615f7f",
+      "name": "Mondays 9am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "435a5fba-7771-4aa6-8e77-7175fc6be90c",
+              "name": "sheet_id",
+              "value": "PASTE_YOUR_GOOGLE_SHEET_ID_HERE",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "id": "e67881c7-88e2-4532-be4f-6ca14064600f",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Config').first().json.sheet_id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Settings",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "2e3de585-994d-4520-aa4a-5159688f7ba3",
+      "name": "Load Settings",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        440,
+        300
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets account"
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turns the Settings tab (key | value rows) into one object.\nconst s = {};\nfor (const it of $input.all()) {\n  const k = String(it.json.key ?? '').trim();\n  if (k) s[k] = String(it.json.value ?? '').trim();\n}\nfor (const k of ['agency_name', 'recruiter_name', 'recruiter_email']) {\n  if (!s[k]) throw new Error(`Settings tab is missing a value for \"${k}\"`);\n}\nreturn [{ json: s }];\n"
+      },
+      "id": "d3fe6701-e090-4140-8307-769243ce00e2",
+      "name": "Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Config').first().json.sheet_id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Candidates",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "43be5415-57f1-44fc-9c22-9fb790757718",
+      "name": "Read Candidates",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        880,
+        300
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets account"
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const s = $('Settings').first().json;\nconst rows = $input.all().map(i => i.json).filter(r => r.candidate_id);\nconst now = Date.now(), WEEK = 7 * 864e5;\nconst t = v => { const n = Date.parse(v); return isNaN(n) ? null : n; };\nconst roles = {};\nfor (const r of rows) {\n  const k = r.job_id || 'unknown';\n  const j = roles[k] = roles[k] || { role: r.role, sourced: 0, shortlisted: 0, awaiting_review: 0, needs_email: 0,\n    contacted: 0, replied: 0, interviews: 0, selected: 0, opted_out: 0 };\n  j.sourced++;\n  if (!['Sourced', 'Not a fit'].includes(r.status)) j.shortlisted++;\n  if (r.status === 'Ready for review') j.awaiting_review++;\n  if (r.status === 'Needs email') j.needs_email++;\n  if (r.outreach_sent_at) j.contacted++;\n  if (r.last_reply_at) j.replied++;\n  if (r.interview_booked_at || r.interview_time || r.status === 'Interview scheduled') j.interviews++;\n  if (r.status === 'Selected') j.selected++;\n  if (r.status === 'Opted out') j.opted_out++;\n}\nconst list = Object.entries(roles).map(([job_id, j]) => ({ job_id, ...j,\n  reply_rate: j.contacted ? Math.round(100 * j.replied / j.contacted) + '%' : '-' }));\nconst week = {\n  new_candidates: rows.filter(r => t(r.created_at) > now - WEEK).length,\n  emails_sent: rows.filter(r => t(r.outreach_sent_at) > now - WEEK).length,\n  replies: rows.filter(r => t(r.last_reply_at) > now - WEEK).length,\n  // counted by when the booking was made, so it still counts after Selected / Rejected\n  interviews_booked: rows.filter(r => t(r.interview_booked_at) > now - WEEK).length\n};\nconst waiting = rows.filter(r => r.status === 'Replied').map(r => ({ name: r.name, role: r.role, replied: r.last_reply_at, url: r.linkedin_url }));\nconst upcoming = rows.filter(r => r.status !== 'Interview cancelled' && t(r.interview_time) > now && t(r.interview_time) < now + WEEK)\n  .map(r => ({ name: r.name, role: r.role, time: r.interview_time, meet: r.meet_link }));\nconst sys = 'You advise a recruiting agency owner. From the pipeline numbers given, return ONLY a JSON object {\"actions\": [three short, specific next actions]}. Use only the data given; do not invent numbers.';\nreturn [{ json: { roles: list, week, waiting, upcoming,\n  request: { model: s.llm_model || 'gpt-4.1-mini', temperature: 0.3, response_format: { type: 'json_object' },\n    messages: [{ role: 'system', content: sys }, { role: 'user', content: JSON.stringify({ roles: list, week, waiting_on_recruiter: waiting.length }) }] } } }];\n"
+      },
+      "id": "2de6b147-a0f7-4db5-847b-0f0b53506df9",
+      "name": "Count Pipeline",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Settings').first().json.llm_url || 'https://api.openai.com/v1/chat/completions' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "timeout": 90000
+        }
+      },
+      "id": "0aa0914e-e09e-48be-978a-2be003d6b151",
+      "name": "AI: Suggest Actions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "AI API key"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $('Count Pipeline').first().json;\nconst s = $('Settings').first().json;\nlet actions = [];\ntry { actions = JSON.parse($input.first().json.choices[0].message.content).actions || []; } catch (e) { actions = []; }\nconst esc = v => String(v ?? '').replace(/[&<>\"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[c]));\nconst th = 'style=\"text-align:left;background:#f3f3f3\"';\nconst roleRows = d.roles.map(r => `<tr><td>${esc(r.role)}</td><td>${r.sourced}</td><td>${r.shortlisted}</td><td>${r.awaiting_review}</td><td>${r.needs_email}</td><td>${r.contacted}</td><td>${r.replied} (${r.reply_rate})</td><td>${r.interviews}</td><td>${r.selected}</td></tr>`).join('');\nconst url = s.sheet_url || ('https://docs.google.com/spreadsheets/d/' + $('Config').first().json.sheet_id);\nlet html = `<h2>${esc(s.agency_name)} - weekly hiring report</h2>\n<p>This week: <b>${d.week.new_candidates}</b> new candidates, <b>${d.week.emails_sent}</b> outreach emails sent, <b>${d.week.replies}</b> replies, <b>${d.week.interviews_booked}</b> interviews booked.</p>\n<h3>Pipeline by role</h3>\n<table border=\"1\" cellpadding=\"6\" cellspacing=\"0\"><tr><th ${th}>Role</th><th ${th}>Sourced</th><th ${th}>Shortlisted</th><th ${th}>To review</th><th ${th}>Need email</th><th ${th}>Contacted</th><th ${th}>Replied</th><th ${th}>Interviews</th><th ${th}>Selected</th></tr>${roleRows || '<tr><td colspan=\"9\">No candidates yet</td></tr>'}</table>`;\nif (d.waiting.length) html += `<h3>Replied - waiting on you (${d.waiting.length})</h3><ul>` + d.waiting.map(w => `<li><a href=\"${esc(w.url)}\">${esc(w.name)}</a> - ${esc(w.role)}</li>`).join('') + '</ul>';\nif (d.upcoming.length) html += '<h3>Interviews in the next 7 days</h3><ul>' + d.upcoming.map(u => `<li>${esc(u.name)} - ${esc(u.role)} - ${esc(new Date(u.time).toUTCString())}${u.meet ? ` - <a href=\"${esc(u.meet)}\">join</a>` : ''}</li>`).join('') + '</ul>';\nif (actions.length) html += '<h3>Suggested next actions</h3><ul>' + actions.slice(0, 3).map(a => `<li>${esc(a)}</li>`).join('') + '</ul>';\nhtml += `<p><a href=\"${esc(url)}\">Open the Candidates sheet</a></p>`;\nreturn [{ json: { html, subject: `${s.agency_name} - weekly hiring report` } }];\n"
+      },
+      "id": "9e447d52-d21b-4806-978c-7dea036d47e8",
+      "name": "Build Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Settings').first().json.recruiter_email }}",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "4f4d15fc-bcc9-4999-9d8e-1a60523cb4db",
+      "name": "Email Report",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1760,
+        300
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "",
+          "name": "Gmail account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Load Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Settings": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mondays 9am": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Read Candidates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Candidates": {
+      "main": [
+        [
+          {
+            "node": "Count Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count Pipeline": {
+      "main": [
+        [
+          {
+            "node": "AI: Suggest Actions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI: Suggest Actions": {
+      "main": [
+        [
+          {
+            "node": "Build Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Report": {
+      "main": [
+        [
+          {
+            "node": "Email Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/New_York"
+  },
+  "pinData": {}
+}
